@@ -1,0 +1,138 @@
+import random
+
+class Minesweeper:
+    def __init__(self, size, triangle_type):
+        self.size = size
+        self.triangle_type = triangle_type
+        self.board = self.create_board()
+        self.mines = self.place_mines()
+        self.flags = []
+        self.revealed = set()
+        
+    def create_board(self):
+        board = []
+        for i in range(1, self.size + 1):
+            row = [0] * i
+            board.append(row)
+        return self.format_board(board)
+
+    def format_board(self, board):
+        if self.triangle_type == 'isósceles':
+            return board  # No change needed, already starts from the left
+        elif self.triangle_type == 'equilátero':
+            for i in range(len(board)):
+                row = board[i]
+                shift = (self.size - len(row)) // 2
+                board[i] = [' '] * shift + row + [' '] * shift
+        elif self.triangle_type == 'escaleno':
+            for i in range(len(board)):
+                row = board[i]
+                shift = (self.size - len(row)) // 2
+                board[i] = [' '] * (shift // 2) + row + [' '] * (shift // 2)
+        return board
+
+    def place_mines(self):
+        mines = set()
+        num_mines = (self.size ** 2) // 4  # Aproximadamente 25% del tablero tendrá minas
+        
+        while len(mines) < num_mines:
+            level = random.randint(0, self.size - 1)
+            index = random.randint(0, level)
+            if (level, index) not in mines:
+                mines.add((level, index))
+        
+        for level, index in mines:
+            self.board[level][index] = 'M'
+            self.increment_neighbors(level, index)
+            
+        return mines
+
+    def increment_neighbors(self, level, index):
+        directions = [(-1, -1), (-1, 0), (0, -1), (0, 1), (1, 0), (1, 1)]
+        for dl, di in directions:
+            nl, ni = level + dl, index + di
+            if 0 <= nl < len(self.board) and 0 <= ni < len(self.board[nl]) and self.board[nl][ni] != 'M':
+                if self.board[nl][ni] != ' ':
+                    self.board[nl][ni] += 1
+
+    def display_board(self, reveal_mines=False):
+        for level in range(len(self.board)):
+            row = []
+            for index in range(len(self.board[level])):
+                if self.board[level][index] == ' ':
+                    row.append(' ')
+                elif (level, index) in self.revealed:
+                    row.append(str(self.board[level][index]))
+                elif (level, index) in self.flags:
+                    row.append('F')
+                elif reveal_mines and self.board[level][index] == 'M':
+                    row.append('M')
+                else:
+                    row.append('*')
+            print(' '.join(row))
+        print()
+        
+    def reveal(self, level, index):
+        if (level, index) in self.flags:
+            print("Esta celda está marcada con una bandera. No se puede revelar.")
+            return True
+
+        if (level, index) in self.mines:
+            self.display_board(reveal_mines=True)
+            print("¡Boom! Has perdido.")
+            return False
+        
+        self.revealed.add((level, index))
+        if self.board[level][index] == 0:
+            self.reveal_neighbors(level, index)
+        
+        if self.check_win():
+            self.display_board(reveal_mines=True)
+            print("¡Felicidades! Has ganado.")
+            return False
+            
+        return True
+
+    def reveal_neighbors(self, level, index):
+        directions = [(-1, -1), (-1, 0), (0, -1), (0, 1), (1, 0), (1, 1)]
+        for dl, di in directions:
+            nl, ni = level + dl, index + di
+            if 0 <= nl < len(self.board) and 0 <= ni < len(self.board[nl]) and (nl, ni) not in self.revealed:
+                self.reveal(nl, ni)
+
+    def place_flag(self, level, index):
+        if (level, index) in self.revealed:
+            print("No se puede colocar una bandera en una celda ya revelada.")
+            return
+        
+        if (level, index) in self.flags:
+            self.flags.remove((level, index))
+        else:
+            self.flags.append((level, index))
+    
+    def check_win(self):
+        total_cells = sum(len(row) for row in self.board if row[0] != ' ')
+        return len(self.revealed) == total_cells - len(self.mines)
+        
+def play_game():
+    size = int(input("Introduce el tamaño del triángulo: "))
+    triangle_type = input("Introduce el tipo de triángulo (isósceles, equilátero, escaleno): ").strip().lower()
+    game = Minesweeper(size, triangle_type)
+    game.display_board()
+    
+    while True:
+        action = input("Elige una acción: 'revelar' o 'bandera': ").strip().lower()
+        level = int(input("Nivel: ")) - 1
+        index = int(input("Índice: ")) - 1
+        
+        if action == 'revelar':
+            if not game.reveal(level, index):
+                break
+        elif action == 'bandera':
+            game.place_flag(level, index)
+        else:
+            print("Acción no válida. Elige 'revelar' o 'bandera'.")
+        
+        game.display_board()
+        
+play_game()
